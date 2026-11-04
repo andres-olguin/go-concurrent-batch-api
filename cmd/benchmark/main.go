@@ -61,6 +61,6 @@ func main() {
 	}
 
 	wg.Wait()
-	fmt.Printf("\n--- PRUEBA FINALIZADA ---\n")
+	fmt.Printf("\n--- PRUEBA DE DEMOSTRACIÓN FINALIZADA ---\n")
 	fmt.Printf("Tiempo total en procesar las 1,000 tareas: %v\n", time.Since(startTime))
 }

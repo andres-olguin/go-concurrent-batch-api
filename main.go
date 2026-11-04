@@ -29,7 +29,7 @@ type TaskResult struct {
 func saveToMongoSimulated(result TaskResult) {
 	// Simulamos el retraso de red de una insercion real en MongoDB
 	time.Sleep(30 * time.Millisecond)
-	fmt.Printf("[MongoDB] Documento guardado exitosamente - ID: %s | Tarea: %s\n", result.ID.Hex(), result.Task)
+	fmt.Printf("[MongoDB] Registro NO persistido (simulación) - ID: %s | Tarea: %s\n", result.ID.Hex(), result.Task)
 }
 
 // processTask simula una tarea pesada de procesamiento asincrono con manejo de errores y persistencia
@@ -88,6 +88,11 @@ func main() {
 			return
 		}
 
+		if err := validateBatchTasks(req.Tasks); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		numTasks := len(req.Tasks)
 		resultChan := make(chan TaskResult, numTasks)
 		var wg sync.WaitGroup
@@ -95,9 +100,14 @@ func main() {
 		totalStart := time.Now()
 
 		// Disparamos una Goroutine por cada tarea en paralelo
+		slots := make(chan struct{}, 8)
 		for _, task := range req.Tasks {
 			wg.Add(1)
-			go processTask(task, resultChan, &wg)
+			slots <- struct{}{}
+			go func(taskName string) {
+				defer func() { <-slots }()
+				processTask(taskName, resultChan, &wg)
+			}(task)
 		}
 
 		// Esperamos a que todas las Goroutines terminen para cerrar el canal
