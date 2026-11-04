@@ -27,3 +27,10 @@ Autenticación y autorización, cancelación de contexto, rate limiting, límite
 ## Datos y seguridad
 
 Usar exclusivamente tareas de ejemplo. No registrar información confidencial en logs, no confiar en los identificadores de Mongo como señal de persistencia ni prometer rendimiento por tiempos simulados.
+
+
+## Cliente de benchmark aislado
+
+El archivo histórico `benchmark.go` tenía otra función `main` y una definición duplicada de `BatchRequest`, por lo que `go test ./...` fallaba al compilar el paquete raíz. Se conserva su contenido en `cmd/benchmark/main.go` como ejecutable separado.
+
+Ejecutar primero el servidor local y luego, solo contra tu entorno autorizado: `go run ./cmd/benchmark`. El cliente genera carga concurrente y **no debe dirigirse a servidores externos sin permiso**. Sus tiempos no constituyen un benchmark de persistencia MongoDB real.
