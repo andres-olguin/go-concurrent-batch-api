@@ -1,10 +1,23 @@
-# Go Concurrent Batch API — laboratorio experimental
+# Go Concurrent Batch API — Procesamiento concurrente de lotes
 
-API de procesamiento concurrente por lotes desarrollada con Go y Gin. El ejemplo usa tareas simuladas y IDs BSON para demostrar concurrencia y métricas de latencia.
+**Laboratorio técnico de concurrencia en Go** con API HTTP basada en Gin. Simula operaciones por lotes, utiliza goroutines acotadas para procesar tareas y proporciona un ejecutable independiente de prueba de estrés local.
 
-**Importante:** `saveToMongoSimulated` NO inserta en MongoDB: espera 30 ms e imprime un mensaje de demostración. No hay persistencia real, autenticación ni autorización verificadas. **No exponer el servidor a Internet.**
+> **Estado:** API experimental. La función `saveToMongoSimulated` **no inserta registros en MongoDB**: simula trabajo mediante espera y mensajes de consola. No existe autenticación, autorización ni persistencia empresarial validada. No desplegar públicamente.
 
-## Uso
+## Capacidades comprobadas en código
+
+| Capacidad | Implementación |
+|---|---|
+| Enviar lote de tareas HTTP | `POST /api/v1/process-batch` |
+| Validar tamaño del lote | 1 a 100 tareas |
+| Limitar cadena de cada tarea | Máximo 256 bytes, no vacía |
+| Acotar concurrencia | Hasta ocho tareas simultáneas |
+| Simular procesamiento/persistencia | Esperas y mensajes, **sin escritura MongoDB** |
+| Generar carga local | Ejecutable separado en `cmd/benchmark/` |
+
+## Arranque local
+
+**Requisitos:** versión de Go compatible con [`go.mod`](go.mod) — actualmente requiere Go 1.26.5 — y dependencias descargables.
 
 ```bash
 go test ./...
@@ -12,25 +25,39 @@ go test -race ./...
 go run .
 ```
 
-Ejemplo de petición local:
+En otra terminal, únicamente contra tu entorno local autorizado:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/process-batch -H "Content-Type: application/json" -d '{"tasks":["demo uno","demo dos"]}'
+curl -X POST http://localhost:8080/api/v1/process-batch \
+  -H "Content-Type: application/json" \
+  -d '{"tasks":["demo uno","demo dos"]}'
 ```
 
-El experimento limita lotes a 100 tareas, textos de hasta 256 bytes por tarea y un máximo de ocho workers simultáneos. Los resultados no tienen orden garantizado por el procesamiento paralelo. Estos límites son una medida inicial, no una certificación anti-DoS.
+En PowerShell, puedes enviar JSON con `Invoke-RestMethod` si el uso de comillas de `curl` es diferente.
 
-## Próximos hitos
+## Estructura
 
-Autenticación y autorización, cancelación de contexto, rate limiting, límites HTTP, cachés, timeouts, persistencia opt-in y pruebas de carga verificables. Consulta `docs/ENGINEERING_ROADMAP_2026-11-04.md`.
+| Archivo | Función |
+|---|---|
+| [`main.go`](main.go) | Servidor y procesamiento simulado |
+| [`validation.go`](validation.go) | Validaciones de lote |
+| [`validation_test.go`](validation_test.go) | Casos normales e inválidos |
+| [`cmd/benchmark/main.go`](cmd/benchmark/main.go) | Cliente de carga independiente |
+| [`.github/workflows/go-tests.yml`](.github/workflows/go-tests.yml) | `go test` y detector de carreras |
+| [`docs/`](docs/) | Evaluación y evolución |
 
-## Datos y seguridad
+## Cliente de benchmark
 
-Usar exclusivamente tareas de ejemplo. No registrar información confidencial en logs, no confiar en los identificadores de Mongo como señal de persistencia ni prometer rendimiento por tiempos simulados.
+```bash
+go run ./cmd/benchmark
+```
 
+**Precaución:** genera muchas peticiones concurrentes al servidor local; no ejecutarlo contra sistemas ajenos. El benchmark no prueba escrituras MongoDB, duración de transacciones ni capacidad empresarial. El cliente se separó del paquete raíz porque el archivo histórico tenía una segunda función `main` que impedía compilar con `go test ./...`.
 
-## Cliente de benchmark aislado
+## Evolución prevista
 
-El archivo histórico `benchmark.go` tenía otra función `main` y una definición duplicada de `BatchRequest`, por lo que `go test ./...` fallaba al compilar el paquete raíz. Se conserva su contenido en `cmd/benchmark/main.go` como ejecutable separado.
+Añadir cancelación por contexto, límites de cuerpo HTTP, permisos, rate limiting, colas con backpressure, persistencia real opcional, pruebas de rutas y benchmarks con cargas representativas. Medir latencia p95/p99, errores y uso de recursos antes de escalar workers.
 
-Ejecutar primero el servidor local y luego, solo contra tu entorno autorizado: `go run ./cmd/benchmark`. El cliente genera carga concurrente y **no debe dirigirse a servidores externos sin permiso**. Sus tiempos no constituyen un benchmark de persistencia MongoDB real.
+[Plan de ingeniería](docs/ENGINEERING_ROADMAP_2026-11-04.md) · [Estudio de escalabilidad](docs/ARCHITECTURE_SCALABILITY_2026-11-04.md).
+
+**Seguridad:** no introducir tareas con datos confidenciales mientras el sistema siga registrando mensajes y simulando persistencia.
